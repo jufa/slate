@@ -14,4 +14,8 @@ then navigate to
 
 To save as a home screen icon on a phone, use option 'add to homescreen' in your phone's OS
 
+## Limitations
+This uses Javascript interface to the host phone's clock. If the user has manually set their clock, the timestamps will follow what the user set, not network disciplined time (i.e. NTP)
+If the phone has been away from network connection for an extended period (days or weeks), it may expereince clock drift, which will be reflected in this app's time code
+
 <img width="445" height="945" alt="image" src="https://github.com/user-attachments/assets/9a2fc69b-e6df-44ee-b2cc-e646bc439f5e" />
