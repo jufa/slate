@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<!-- Built in part with Deepseek Flash v4-flash-v2026-07-01 -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Telemetry">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#000000">
+    <meta name="msapplication-TileColor" content="#000000">
+    <link rel="manifest" href="/slate/site.webmanifest">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="apple-touch-icon" sizes="192x192" href="">
+
+    <title>Slate: timelapse clapper board for night photography</title>
+    <style>
+        html {
+            background-color: #000000;
+            min-height: 100%;
+        }
+
+        body {
+            background-color: #000000;
+            color: #FF0000;
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 20px;
+            padding-right: 50px; /* prevent content from being clipped by the fixed bar + labels */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            min-height: 100vh;
+            min-height: 100dvh;
+            text-align: center;
+            box-sizing: border-box;
+            position: relative;
+            box-shadow: inset 0 0 0 2px #FF0000;
+        }
+
+        .telemetry-block {
+            width: 100%;
+            margin: 15px 0;
+        }
+
+        #clock {
+            font-size: 7.5rem;
+            font-weight: bold;
+            letter-spacing: -2px;
+            color: transparent;
+            -webkit-text-stroke: 2px #FF0000;
+            text-stroke: 2px #FF0000;
+            margin-bottom: 0;
+        }
+
+        #seconds-display {
+            font-size: 6rem;
+            font-weight: bold;
+            letter-spacing: -1px;
+            color: transparent;
+            -webkit-text-stroke: 2px #FF0000;
+            text-stroke: 2px #FF0000;
+            margin-top: -10px;
+        }
+
+        #date {
+            font-size: 6rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: transparent;
+            -webkit-text-stroke: 2px #FF0000;
+            text-stroke: 2px #FF0000;
+        }
+
+        #utc-label {
+            font-size: 1rem;
+            color: #880000;
+            margin-top: 4px;
+        }
+
+        .sensor-label {
+            font-size: 1.8rem;
+            color: #880000; 
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+
+        .sensor-data {
+            font-size: 3rem;
+            font-weight: bold;
+        }
+
+      #btn-permission {
+            background-color: #FF0000;
+            color: #000000;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.8rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+            text-transform: uppercase;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.4);
+        }
+
+        #btn-permission.hidden {
+            display: none;
+        }
+
+        #second-bar-container {
+            position: fixed;
+            top: 0;
+            right: 0;
+            right: env(safe-area-inset-right, 0);
+            width: 20px;
+            height: 100vh;
+            height: 100dvh;
+            background-color: #1a0000;
+            border-left: 1px solid #440000;
+            box-sizing: border-box;
+            z-index: 1000;
+        }
+
+        /* The indicator line — a thin horizontal line that travels up the bar 
+           we use this ince we expect multi-second exposures that would  overlap the 
+           numeric display - this will 'draw' a bar showing seconds and exposure duration 
+           in a long exposure*/
+        #second-bar-fill {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background-color: #999999;
+            transition: bottom 0.1s linear;
+        }
+
+        /* Tick marks and labels overlay */
+        #second-bar-ticks {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column-reverse;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: none;
+        }
+
+        .tick {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            position: relative;
+        }
+
+        .tick-mark {
+            width: 8px;
+            height: 1px;
+            background-color: #880000;
+            flex-shrink: 0;
+        }
+
+        .tick-mark.major {
+            width: 14px;
+            height: 2px;
+            background-color: #cc0000;
+        }
+
+        .tick-label {
+            color: #cc0000;
+            font-size: 16px;
+            font-family: 'Roboto', sans-serif;
+            padding-right: 6px;
+            line-height: 1;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== SECOND PROGRESS BAR (Vertical, right side) ===== -->
+    <div id="second-bar-container">
+        <div id="second-bar-fill"></div>
+        <div id="second-bar-ticks"></div>
+    </div>
+
+    <div class="telemetry-block">
+        <div id="clock">00:00</div>
+        <div id="seconds-display">00.0</div>
+        <div id="utc-label">UTC</div>
+        <div id="date">LOADING...</div>
+    </div>
+
+    <div class="telemetry-block">
+        <div class="sensor-label">LAT / LON</div>
+        <div id="gps-display" class="sensor-data">---.- / ---.-</div>
+    </div>
+
+    <div class="telemetry-block">
+        <div class="sensor-label">COMPASS BEARING</div>
+        <div id="compass-display" class="sensor-data">---°</div>
+    </div>
+
+    <button id="btn-permission">Start Hardware Sensors</button>
+
+    <script>
+        // 0. BUILD SECOND PROGRESS BAR TICK MARKS
+        (function buildSecondBar() {
+            const ticksContainer = document.getElementById('second-bar-ticks');
+            // 60 ticks (0-59 seconds), displayed bottom-to-top via flex-direction: column-reverse
+            for (let s = 0; s < 60; s++) {
+                const tick = document.createElement('div');
+                tick.className = 'tick';
+
+                const isMajor = (s % 5 === 0);
+
+                // Label goes first (left of the bar), then the tick mark (right-aligned)
+                if (isMajor) {
+                    const label = document.createElement('span');
+                    label.className = 'tick-label';
+                    label.textContent = s;
+                    tick.appendChild(label);
+                }
+
+                const mark = document.createElement('div');
+                mark.className = 'tick-mark' + (isMajor ? ' major' : '');
+                tick.appendChild(mark);
+
+                ticksContainer.appendChild(tick);
+            }
+        })();
+
+        // 1. CLOCK & DATE ENGINE + SECOND BAR (Updates every 100ms for smooth bar)
+        function updateDateTime() {
+            const now = new Date();
+            const sec = now.getUTCSeconds();
+            const ms = now.getMilliseconds();
+            
+            // Date string formatting (UTC: YYYY-MM-DD)
+            const yyyy = now.getUTCFullYear();
+            const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
+            const dd = String(now.getUTCDate()).padStart(2, '0');
+            document.getElementById('date').innerText = `${yyyy}-${mm}-${dd}`;
+
+            // Time string formatting (UTC: HH:MM on main line, SS.T on second line)
+            const hh = String(now.getUTCHours()).padStart(2, '0');
+            const min = String(now.getUTCMinutes()).padStart(2, '0');
+            const ss = String(now.getUTCSeconds()).padStart(2, '0');
+            const tenths = Math.floor(now.getMilliseconds() / 100);
+            document.getElementById('clock').innerText = `${hh}:${min}`;
+            document.getElementById('seconds-display').innerText = `${ss}.${tenths}`;
+
+            // Update second indicator line position (0-59 seconds → 0-100% up the bar)
+            const pct = ((sec + ms / 1000) / 60) * 100;
+            document.getElementById('second-bar-fill').style.bottom = pct + '%';
+        }
+        setInterval(updateDateTime, 100);
+        updateDateTime(); // Immediate execution on load
+
+        // Recalibrate clock when page becomes visible again (e.g. phone wakes from sleep)
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                console.log('Page visible again, recalibrating clock...');
+                updateDateTime();
+            }
+        });
+
+
+        // 2. SENSOR INITIALIZATION ENGINE
+        const permissionBtn = document.getElementById('btn-permission');
+
+        permissionBtn.addEventListener('click', function(e) {
+            // Hide the button once tapped so it doesn't clutter photography
+            permissionBtn.classList.add('hidden');
+
+            // Initialize GPS — MUST be called synchronously from user gesture on iOS.
+            // Do NOT use async here — iOS requires the geolocation call to happen
+            // directly within the synchronous execution of the click handler.
+            if ('geolocation' in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    // Success — start watching for continuous updates
+                    function(position) {
+                        const lat = position.coords.latitude.toFixed(1);
+                        const lon = position.coords.longitude.toFixed(1);
+                        document.getElementById('gps-display').innerText = `${lat} / ${lon}`;
+                        // Now start watching for continuous updates
+                        navigator.geolocation.watchPosition(
+                            function(pos) {
+                                document.getElementById('gps-display').innerText =
+                                    `${pos.coords.latitude.toFixed(1)} / ${pos.coords.longitude.toFixed(1)}`;
+                            },
+                            function(err) {
+                                let msg = "GPS ERR";
+                                switch(err.code) {
+                                    case err.PERMISSION_DENIED: msg = "GPS DENIED"; break;
+                                    case err.POSITION_UNAVAILABLE: msg = "GPS UNAVAIL"; break;
+                                    case err.TIMEOUT: msg = "GPS TIMEOUT"; break;
+                                }
+                                document.getElementById('gps-display').innerText = msg;
+                            },
+                            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                        );
+                    },
+                    function(err) {
+                        let msg = "GPS ERR";
+                        switch(err.code) {
+                            case err.PERMISSION_DENIED: msg = "GPS DENIED"; break;
+                            case err.POSITION_UNAVAILABLE: msg = "GPS UNAVAIL"; break;
+                            case err.TIMEOUT: msg = "GPS TIMEOUT"; break;
+                        }
+                        document.getElementById('gps-display').innerText = msg;
+                    },
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                );
+            } else {
+                document.getElementById('gps-display').innerText = "NO GPS HW";
+            }
+
+            // Initialize Compass Magnetometer (async is fine here — separate from GPS gesture)
+            (async function initCompass() {
+                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    // iOS 13+ Prompt Workflow
+                    try {
+                        const response = await DeviceOrientationEvent.requestPermission();
+                        if (response === 'granted') {
+                            window.addEventListener('deviceorientation', handleCompass, true);
+                        } else {
+                            document.getElementById('compass-display').innerText = "DENIED";
+                        }
+                    } catch (e) {
+                        document.getElementById('compass-display').innerText = "ERROR";
+                    }
+                } else {
+                    // Android Workflow (No explicit gateway prompt required)
+                    window.addEventListener('deviceorientation', handleCompass, true);
+                }
+            })();
+        });
+
+        // 3. COMPASS DATA HANDLER
+        function handleCompass(event) {
+            let heading = null;
+
+            // iOS absolute heading standard
+            if (event.webkitCompassHeading) {
+                heading = event.webkitCompassHeading;
+            } 
+            // Android fallback (requires event.absolute tracking if supported)
+            else if (event.alpha !== null) {
+                heading = 360 - event.alpha; 
+            }
+
+            if (heading !== null) {
+                document.getElementById('compass-display').innerText = `${Math.round(heading).toFixed(1)}°`;
+            } else {
+                document.getElementById('compass-display').innerText = "CALIBRATING";
+            }
+        }
+
+
+        // 4. SERVICE WORKER REGISTRATION (Enables absolute offline capability)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Inline Service Worker payload architecture using a Data URI Data URL blob
+                // This bypasses requiring a separate physical sw.js file if you want to swap codes fast.
+                const swCode = `
+                    const CACHE_NAME = 'telemetry-cache-v1';
+                    const ASSETS = [ '/' ];
+
+                    self.addEventListener('install', (e) => {
+                        e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(ASSETS)));
+                    });
+
+                    self.addEventListener('fetch', (e) => {
+                        e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+                    });
+                `;
+                
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const workerUrl = URL.createObjectURL(blob);
+                
+                navigator.serviceWorker.register(workerUrl, { scope: '/' })
+                    .catch(err => console.log('Service Worker Setup Complete'));
+            });
+        }
+    </script>
+</body>
+</html>
